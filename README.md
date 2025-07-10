@@ -1,6 +1,3 @@
-Here's the corrected version with fixed typos and improved formatting:
-
-````
 # gguf-tensor-overrider
 
 ## Install
@@ -42,7 +39,7 @@ Tired of fucking around with `--tensor-override` regexes in llama.cpp? This tool
 
 1. `-g`, `--gguf-url`: The Hugging Face URL for the GGUF. In the case of multipart GGUFs, `gguf-tensor-overrider` automatically parses them if you provide the first file.
 2. `-c`, `--context-length`: The context length you're passing to llama.cpp. Used to estimate the KV cache of the model to safely allocate attention tensors
-3. `-q`, `--context-quantization-size`: The quantization type of the KV cache. Currently assumes both K and V are quantized to the same type
+3. `--context-quantization-size`: The quantization type of the KV cache. Currently assumes both K and V are quantized to the same type
 4. `--check`, `--no-check`: Check if your system can handle the allocation without using swap
 5. `--gpu-percentage` (default 0.9): How much of the GPU(s) to use for allocation. Useful if the script didn't allocate the cache accurately
 6. `--granular-gpu-percentage`: Percentage for each GPU in your system. Useful if you don't want to use a certain GPU or llama.cpp compute buffer is making you sad

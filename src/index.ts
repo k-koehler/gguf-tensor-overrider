@@ -13,11 +13,7 @@ program
 program
   .option("-g, --gguf-url <url>", "URL of the GGUF file to optimize")
   .option("-c, --context-length <length>", "Context length for optimization")
-  .option(
-    "-q",
-    "--context-quantization-size <size>",
-    "Context quantization size"
-  )
+  .option("--context-quantization-size <size>", "Context quantization size")
   .option(
     "--no-check",
     "Skip system resource limits check. Useful for when you're using swap"

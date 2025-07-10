@@ -1,52 +1,50 @@
-import {
-  GGMLFileQuantizationType,
-  GGMLQuantizationType,
-  type GGUFParseOutput,
-} from "@huggingface/gguf";
+import { GGMLQuantizationType, type GGUFParseOutput } from "@huggingface/gguf";
 import type { Gpu } from "./nvidia.ts";
 import Log from "./log.ts";
 
 const GGUFQuantizationSizeMapBytes: Record<GGMLQuantizationType, number> = {
-  // Fixed-size types (no block overhead)
-  [GGMLQuantizationType.F32]: 4, // 32 bits → 4 bytes
-  [GGMLQuantizationType.F16]: 2, // 16 bits → 2 bytes
-  [GGMLQuantizationType.BF16]: 2, // 16 bits → 2 bytes
-  [GGMLQuantizationType.F64]: 8, // 64 bits → 8 bytes
+  // --- Fixed-size types ---
+  [GGMLQuantizationType.F32]: 4,
+  [GGMLQuantizationType.F16]: 2,
+  [GGMLQuantizationType.BF16]: 2,
+  [GGMLQuantizationType.F64]: 8,
 
-  // Block-based types (32 elements per block unless specified)
-  [GGMLQuantizationType.Q4_0]: 0.5625, // (2 bytes delta + 16 bytes quants) / 32 elements [1]
-  [GGMLQuantizationType.Q4_1]: 0.5938, // (2 bytes delta + 19 bytes quants) / 32 elements [1]
-  [GGMLQuantizationType.Q5_0]: 0.6875, // (2 bytes delta + 22 bytes quants) / 32 elements [1]
-  [GGMLQuantizationType.Q5_1]: 0.7188, // (2 bytes delta + 23 bytes quants) / 32 elements [1]
-  [GGMLQuantizationType.Q8_0]: 1.0625, // (2 bytes delta + 32 bytes quants) / 32 elements [1]
-  [GGMLQuantizationType.Q8_1]: 1.0938, // (2 bytes delta + 35 bytes quants) / 32 elements [1]
+  // --- Integer types ---
+  [GGMLQuantizationType.I8]: 1,
+  [GGMLQuantizationType.I16]: 2,
+  [GGMLQuantizationType.I32]: 4,
+  [GGMLQuantizationType.I64]: 8,
 
-  // Approximations for K-series (block sizes vary; 256 elements assumed)
-  [GGMLQuantizationType.Q2_K]: 0.5625, // Approximate as Q4_0 (0.5625 bytes/element)
-  [GGMLQuantizationType.Q3_K]: 0.625, // Approximate as midway between Q4_0 and Q5_0 (0.625 bytes/element)
-  [GGMLQuantizationType.Q4_K]: 0.625, // Midway between Q4_0 (0.5625) and Q5_0 (0.6875) = 0.625 bytes/element
-  [GGMLQuantizationType.Q5_K]: 0.6875, // Approximate as Q5_0 (0.6875 bytes/element)
-  [GGMLQuantizationType.Q6_K]: 0.75, // Approximate as slightly above Q5_0 (0.75 bytes/element)
+  // --- Block-based Q-types (32 elements per block) ---
+  [GGMLQuantizationType.Q4_0]: 0.5625, // (2 + 16) / 32
+  [GGMLQuantizationType.Q4_1]: 0.625, // (2 + 2 + 16) / 32
+  [GGMLQuantizationType.Q5_0]: 0.6875, // (2 + 20) / 32
+  [GGMLQuantizationType.Q5_1]: 0.75, // (2 + 2 + 20) / 32
+  [GGMLQuantizationType.Q8_0]: 1.0625, // (2 + 32) / 32
+  [GGMLQuantizationType.Q8_1]: 1.125, // (2 + 2 + 32) / 32
 
-  // Integer types (no quantization overhead)
-  [GGMLQuantizationType.I8]: 0.125, // 8 bits → 1 byte per element
-  [GGMLQuantizationType.I16]: 0.25, // 16 bits → 2 bytes per element
-  [GGMLQuantizationType.I32]: 0.5, // 32 bits → 4 bytes per element
-  [GGMLQuantizationType.I64]: 1, // 64 bits → 8 bytes per element
+  // --- K-series (K-quants) ---
+  [GGMLQuantizationType.Q2_K]: 0.359375, // 2.875 bpw
+  [GGMLQuantizationType.Q3_K]: 0.4375, // 3.5 bpw
+  [GGMLQuantizationType.Q4_K]: 0.5625, // 4.5 bpw
+  [GGMLQuantizationType.Q5_K]: 0.6875, // 5.5 bpw
+  [GGMLQuantizationType.Q6_K]: 0.8125, // 6.5 bpw
+  [GGMLQuantizationType.Q8_K]: 1.0, // 8 bpw
 
-  // IQ variants (approximated using bits per element, no block overhead)
-  [GGMLQuantizationType.IQ2_XXS]: 0.25, // 2 bits → 0.25 bytes
-  [GGMLQuantizationType.IQ2_XS]: 0.25, // 2 bits → 0.25 bytes
-  [GGMLQuantizationType.IQ3_XXS]: 0.1667, // 1.33 bits → ~0.1667 bytes
-  [GGMLQuantizationType.IQ1_S]: 0.5, // 4 bits → 0.5 bytes
-  [GGMLQuantizationType.IQ4_NL]: 0.125, // 4 bits → 0.5 bytes (original may be incorrect) [1]
-  [GGMLQuantizationType.IQ3_S]: 0.1667, // 1.33 bits → ~0.1667 bytes
-  [GGMLQuantizationType.IQ2_S]: 0.25, // 2 bits → 0.25 bytes
-  [GGMLQuantizationType.IQ4_XS]: 0.125, // 4 bits → 0.5 bytes (original may be incorrect) [1]
-  [GGMLQuantizationType.IQ1_M]: 0.5, // 4 bits → 0.5 bytes
-  [GGMLQuantizationType.TQ1_0]: 0.5, // 4 bits → 0.5 bytes (assumed)
-  [GGMLQuantizationType.TQ2_0]: 0.25,
-  [GGMLQuantizationType.Q8_K]: 1, // 8 bits → 1 byte per element (assumed)
+  // --- IQ (Importance-aware Quantization) types ---
+  [GGMLQuantizationType.IQ1_M]: 0.1953125, // 1.5625 bpw
+  [GGMLQuantizationType.IQ1_S]: 0.22265625, // 1.78125 bpw
+  [GGMLQuantizationType.IQ2_XXS]: 0.2734375, // 2.1875 bpw
+  [GGMLQuantizationType.IQ2_XS]: 0.3046875, // 2.4375 bpw
+  [GGMLQuantizationType.IQ2_S]: 0.3125, // 2.5 bpw
+  [GGMLQuantizationType.IQ3_XXS]: 0.40234375, // 3.21875 bpw
+  [GGMLQuantizationType.IQ3_S]: 0.44140625, // 3.53125 bpw
+  [GGMLQuantizationType.IQ4_NL]: 0.5, // 4.0 bpw
+  [GGMLQuantizationType.IQ4_XS]: 0.53125, // 4.25 bpw
+
+  // --- Tensor Quantization (assumed from user context) ---
+  [GGMLQuantizationType.TQ1_0]: 0.5, // Assumed 4-bit
+  [GGMLQuantizationType.TQ2_0]: 0.25, // Assumed 2-bit
 };
 
 function bytesToMiB(bytes: number): number {
@@ -296,6 +294,29 @@ class DeviceAllocator {
       )} MiB on any device.`
     );
   }
+
+  public allocateOnDevice(
+    deviceName: string,
+    requiredMemoryBytes: number,
+    tensorName?: string
+  ): Device {
+    const device = this.devices.find((d) => d.name === deviceName);
+    if (!device) {
+      throw new Error(`Device ${deviceName} not found.`);
+    }
+    if (!device.canAllocate(requiredMemoryBytes)) {
+      throw new Error(
+        `Cannot allocate ${bytesToMiB(requiredMemoryBytes).toFixed(
+          2
+        )} MiB on device ${deviceName}.`
+      );
+    }
+    device.alloc(requiredMemoryBytes);
+    if (tensorName) {
+      this.tensorMap[tensorName] = device.name;
+    }
+    return device;
+  }
 }
 
 function tensorsBlockwise(
@@ -333,7 +354,7 @@ export default function optimize({
   check: boolean;
   gpuPercentage?: number;
   granularGpuPercentage?: number[];
-}): void {
+}) {
   if (
     check &&
     !modelFitsInMemory({
@@ -380,6 +401,23 @@ export default function optimize({
 
   const allocator = new DeviceAllocator([cpuDevice, ...gpuDevices]);
   const seen = new Set<string>();
+
+  // allocate the emedding tensor to CPU
+  // this is because llama.cpp doesn't support some quantization types on GPU for embedding tensors
+  const embeddingTensor = gguf.tensorInfos.find(
+    (tensor) => tensor.name === "token_embd.weight"
+  );
+  if (embeddingTensor) {
+    const embeddingSize = calculateTensorSizeBytes(embeddingTensor);
+    allocator.allocateOnDevice("CPU", embeddingSize, embeddingTensor.name);
+    seen.add(embeddingTensor.name);
+    Log.log(
+      "info",
+      `Embedding tensor ${embeddingTensor.name} allocated on CPU: ${bytesToMiB(
+        embeddingSize
+      ).toFixed(2)} MiB`
+    );
+  }
 
   // first pass
   // blockwise enumerate over tensors for the purposes of allocating attention
@@ -562,5 +600,16 @@ export default function optimize({
   for (const [tensorName, deviceName] of Object.entries(allocator.tensorMap)) {
     command += `-ot "${tensorName}=${deviceName}" `;
   }
-  Log.log("default", command.trim());
+  command = command.trim();
+  Log.log("default", command);
+  return {
+    command,
+    tensorMap: allocator.tensorMap,
+    deviceAllocation: allocator.devices.map((device) => ({
+      name: device.name,
+      bytesAllocated: device.bytesAllocated,
+      memoryTotalBytes: device.memoryTotalBytes,
+      utilizationPercentage: device.utilizationPercentage,
+    })),
+  };
 }

@@ -4,6 +4,9 @@
   "main": "index.js",
   "author": "k-koehler",
   "description": "",
+  "scripts": {
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning __test__/index.ts"
+  },
   "dependencies": {
     "@huggingface/gguf": "^0.1.17",
     "commander": "^14.0.0"
