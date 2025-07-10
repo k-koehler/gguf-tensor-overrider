@@ -3,48 +3,37 @@ import type { Gpu } from "./nvidia.ts";
 import Log from "./log.ts";
 
 const GGUFQuantizationSizeMapBytes: Record<GGMLQuantizationType, number> = {
-  // --- Fixed-size types ---
   [GGMLQuantizationType.F32]: 4,
   [GGMLQuantizationType.F16]: 2,
   [GGMLQuantizationType.BF16]: 2,
   [GGMLQuantizationType.F64]: 8,
-
-  // --- Integer types ---
   [GGMLQuantizationType.I8]: 1,
   [GGMLQuantizationType.I16]: 2,
   [GGMLQuantizationType.I32]: 4,
   [GGMLQuantizationType.I64]: 8,
-
-  // --- Block-based Q-types (32 elements per block) ---
-  [GGMLQuantizationType.Q4_0]: 0.5625, // (2 + 16) / 32
-  [GGMLQuantizationType.Q4_1]: 0.625, // (2 + 2 + 16) / 32
-  [GGMLQuantizationType.Q5_0]: 0.6875, // (2 + 20) / 32
-  [GGMLQuantizationType.Q5_1]: 0.75, // (2 + 2 + 20) / 32
-  [GGMLQuantizationType.Q8_0]: 1.0625, // (2 + 32) / 32
-  [GGMLQuantizationType.Q8_1]: 1.125, // (2 + 2 + 32) / 32
-
-  // --- K-series (K-quants) ---
-  [GGMLQuantizationType.Q2_K]: 0.359375, // 2.875 bpw
-  [GGMLQuantizationType.Q3_K]: 0.4375, // 3.5 bpw
-  [GGMLQuantizationType.Q4_K]: 0.5625, // 4.5 bpw
-  [GGMLQuantizationType.Q5_K]: 0.6875, // 5.5 bpw
-  [GGMLQuantizationType.Q6_K]: 0.8125, // 6.5 bpw
-  [GGMLQuantizationType.Q8_K]: 1.0, // 8 bpw
-
-  // --- IQ (Importance-aware Quantization) types ---
-  [GGMLQuantizationType.IQ1_M]: 0.1953125, // 1.5625 bpw
-  [GGMLQuantizationType.IQ1_S]: 0.22265625, // 1.78125 bpw
-  [GGMLQuantizationType.IQ2_XXS]: 0.2734375, // 2.1875 bpw
-  [GGMLQuantizationType.IQ2_XS]: 0.3046875, // 2.4375 bpw
-  [GGMLQuantizationType.IQ2_S]: 0.3125, // 2.5 bpw
-  [GGMLQuantizationType.IQ3_XXS]: 0.40234375, // 3.21875 bpw
-  [GGMLQuantizationType.IQ3_S]: 0.44140625, // 3.53125 bpw
-  [GGMLQuantizationType.IQ4_NL]: 0.5, // 4.0 bpw
-  [GGMLQuantizationType.IQ4_XS]: 0.53125, // 4.25 bpw
-
-  // --- Tensor Quantization (assumed from user context) ---
-  [GGMLQuantizationType.TQ1_0]: 0.5, // Assumed 4-bit
-  [GGMLQuantizationType.TQ2_0]: 0.25, // Assumed 2-bit
+  [GGMLQuantizationType.Q4_0]: 0.5625,
+  [GGMLQuantizationType.Q4_1]: 0.625,
+  [GGMLQuantizationType.Q5_0]: 0.6875,
+  [GGMLQuantizationType.Q5_1]: 0.75,
+  [GGMLQuantizationType.Q8_0]: 1.0625,
+  [GGMLQuantizationType.Q8_1]: 1.125,
+  [GGMLQuantizationType.Q2_K]: 0.359375,
+  [GGMLQuantizationType.Q3_K]: 0.4375,
+  [GGMLQuantizationType.Q4_K]: 0.5625,
+  [GGMLQuantizationType.Q5_K]: 0.6875,
+  [GGMLQuantizationType.Q6_K]: 0.8125,
+  [GGMLQuantizationType.Q8_K]: 1.0,
+  [GGMLQuantizationType.IQ1_M]: 0.1953125,
+  [GGMLQuantizationType.IQ1_S]: 0.22265625,
+  [GGMLQuantizationType.IQ2_XXS]: 0.2734375,
+  [GGMLQuantizationType.IQ2_XS]: 0.3046875,
+  [GGMLQuantizationType.IQ2_S]: 0.3125,
+  [GGMLQuantizationType.IQ3_XXS]: 0.40234375,
+  [GGMLQuantizationType.IQ3_S]: 0.44140625,
+  [GGMLQuantizationType.IQ4_NL]: 0.5,
+  [GGMLQuantizationType.IQ4_XS]: 0.53125,
+  [GGMLQuantizationType.TQ1_0]: 0.5,
+  [GGMLQuantizationType.TQ2_0]: 0.25,
 };
 
 function bytesToMiB(bytes: number): number {
