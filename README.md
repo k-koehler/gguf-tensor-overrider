@@ -11,7 +11,11 @@ curl https://raw.githubusercontent.com/k-koehler/gguf-tensor-overrider/refs/head
 ## Example Command
 
 ```bash
-gguf-tensor-overrider -g https://huggingface.co/unsloth/Qwen3-235B-A22B-GGUF/resolve/main/UD-Q4_K_XL/Qwen3-235B-A22B-UD-Q4_K_XL-00001-of-00003.gguf -c 32000 --no-check --verbose
+gguf-tensor-overrider \
+  -g https://huggingface.co/unsloth/Qwen3-235B-A22B-GGUF/resolve/main/UD-Q4_K_XL/Qwen3-235B-A22B-UD-Q4_K_XL-00001-of-00003.gguf \
+  -c 32000 \
+  --no-check \
+  --verbose
 ```
 
 ## Purpose
