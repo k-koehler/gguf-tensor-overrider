@@ -121,10 +121,30 @@ function extractMetadata(gguf: GGUFParseOutput): {
           gguf.metadata["deepseek2.embedding_length"] /
           gguf.metadata["deepseek2.attention.head_count"],
       };
-    default:
-      throw new Error(
-        `Unsupported architecture: ${gguf.metadata["general.architecture"]}`
-      );
+    case "hunyuan-moe" as string:
+      return {
+        hiddenSize: gguf.metadata["hunyuan-moe.embedding_length"],
+        numAttentionHeads: gguf.metadata["hunyuan-moe.attention.head_count"],
+        numLayers: gguf.metadata["hunyuan-moe.block_count"],
+        numKeyValueHeads: gguf.metadata["hunyuan-moe.attention.head_count_kv"],
+        headSize:
+          gguf.metadata["hunyuan-moe.embedding_length"] /
+          gguf.metadata["hunyuan-moe.attention.head_count"],
+      };
+    default: {
+      Log.log("info", "Unknown architecture, attempting generic extraction. This may not work for all models.");
+      const name = gguf.metadata["general.architecture"] as string;
+      return {
+        hiddenSize: gguf.metadata[`${name}.embedding_length`],
+        numAttentionHeads: gguf.metadata[`${name}.attention.head_count`],
+        numLayers: gguf.metadata[`${name}.block_count`],
+        numKeyValueHeads: gguf.metadata[`${name}.attention.head_count_kv`]!,
+        headSize:
+          gguf.metadata[`${name}.embedding_length`] /
+          gguf.metadata[`${name}.attention.head_count`],
+      };
+    }
+
   }
 }
 
